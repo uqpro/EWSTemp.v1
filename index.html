@@ -1,0 +1,340 @@
+Index ews
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EWS Suhu Mesin</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e293b">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+  <!-- APP CONTAINER -->
+  <div id="app" class="max-w-4xl mx-auto p-4 space-y-6">
+
+    <!-- HEADER -->
+    <header class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="gauge" class="w-8 h-8 text-amber-400"></i>
+        <div>
+          <h1 class="text-xl font-bold">EWS Suhu Mesin</h1>
+          <p id="user-info" class="text-xs text-slate-400">Tamu (Belum Login)</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btn-login-modal" onclick="toggleModal('login-modal')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg font-semibold flex items-center gap-1">
+          <i data-lucide="log-in" class="w-4 h-4"></i> Login
+        </button>
+        <button id="btn-mute" onclick="toggleMuteSound()" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-slate-300">
+          <i id="mute-icon" data-lucide="volume-2" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ALARM BANNER -->
+    <div id="alarm-banner" class="hidden bg-red-600 text-white p-4 rounded-xl font-bold animate-pulse text-center flex justify-between items-center">
+      <span class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-6 h-6"></i> ALARM DARURAT! SUHU MESIN KRITIS!</span>
+      <button onclick="stopAlarmManual()" class="bg-white text-red-600 px-3 py-1 rounded text-xs font-black">MATIKAN ALARM</button>
+    </div>
+
+    <!-- MAIN MONITOR GAUGE & CARD -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- MONITOR CARD -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg text-center flex flex-col justify-between">
+        <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Suhu Mesin Real-Time</h2>
+        <div class="my-6">
+          <span id="temp-display" class="text-6xl font-black text-emerald-400">0.0</span>
+          <span class="text-2xl font-bold text-slate-400">°C</span>
+        </div>
+        <div id="status-badge" class="inline-block bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mx-auto">
+          NORMAL
+        </div>
+        <p id="last-update" class="text-xs text-slate-500 mt-4">Terakhir Diperbarui: -</p>
+      </div>
+
+      <!-- INPUT SUHU / CONTROLLER -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex flex-col justify-between">
+        <h2 class="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-4">Input Data Sensor / Manual</h2>
+        <form onsubmit="submitTemperature(event)" class="space-y-4">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">ID Mesin</label>
+            <input type="text" id="input-machine" value="MESIN-01" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Suhu Mesin (°C)</label>
+            <input type="number" step="0.1" id="input-temp" placeholder="Contoh: 82.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required>
+          </div>
+          <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold p-3 rounded-lg flex items-center justify-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i> Kirim Data Suhu
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- ADMIN SETTINGS SECTION (HIDDEN FOR OPERATORS) -->
+    <div id="admin-section" class="hidden bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-4">
+      <h2 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+        <i data-lucide="settings" class="w-5 h-5"></i> Konfigurasi Parameter (Admin Only)
+      </h2>
+      <form onsubmit="saveSettings(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs text-slate-400">Batas Warning (°C)</label>
+          <input type="number" id="cfg-warn" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white mt-1">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">Batas Kritis / Alarm (°C)</label>
+          <input type="number" id="cfg-crit" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white mt-1">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">Telegram Bot Token</label>
+          <input type="text" id="cfg-token" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white mt-1">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">Telegram Chat / Group ID</label>
+          <input type="text" id="cfg-chatid" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white mt-1">
+        </div>
+        <div class="md:col-span-2">
+          <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">Simpan Pengaturan</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- LOG TABLE -->
+    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Riwayat Suhu Terakhir</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-900 text-slate-400 uppercase">
+            <tr>
+              <th class="p-3">Waktu</th>
+              <th class="p-3">Mesin</th>
+              <th class="p-3">Suhu</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Operator</th>
+            </tr>
+          </thead>
+          <tbody id="log-table-body" class="divide-y divide-slate-700">
+            <tr><td colspan="5" class="p-3 text-center text-slate-500">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LOGIN MODAL -->
+  <div id="login-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 max-w-sm w-full space-y-4">
+      <h3 class="text-lg font-bold text-white">Login User</h3>
+      <form onsubmit="processLogin(event)" class="space-y-3">
+        <input type="text" id="login-user" placeholder="Username" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white" required>
+        <input type="password" id="login-pin" placeholder="PIN" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white" required>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="toggleModal('login-modal')" class="bg-slate-700 px-4 py-2 rounded-lg text-xs font-semibold">Batal</button>
+          <button type="submit" class="bg-blue-600 px-4 py-2 rounded-lg text-xs font-semibold">Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS LOGIC -->
+  <script>
+    // MASUKKAN GOOGLE APPS SCRIPT WEB APP URL ANDA DI SINI
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyskQc4w_yIQL4QZtjqOZyqTuxo4z0qeRX9TMUbEC6XL_7R0wafD_avfCSFAzM9Q0zH/exec";
+
+    let currentUser = { username: "Guest", role: "Guest" };
+    let isMuted = false;
+    let audioCtx = null;
+    let alarmOscillator = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      fetchStatus();
+      fetchLogs();
+      setInterval(fetchStatus, 5000); // Polling otomatis setiap 5 detik
+    });
+
+    function toggleModal(id) {
+      document.getElementById(id).classList.toggle("hidden");
+    }
+
+    function toggleMuteSound() {
+      isMuted = !isMuted;
+      document.getElementById("mute-icon").setAttribute("data-lucide", isMuted ? "volume-x" : "volume-2");
+      lucide.createIcons();
+      if (isMuted && alarmOscillator) stopSiren();
+    }
+
+    // WEB AUDIO API SIREN ALARM
+    function startSiren() {
+      if (isMuted || alarmOscillator) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      alarmOscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      alarmOscillator.type = 'sawtooth';
+      alarmOscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      alarmOscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.5);
+      
+      alarmOscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      alarmOscillator.start();
+      alarmOscillator.loop = true;
+    }
+
+    function stopSiren() {
+      if (alarmOscillator) {
+        alarmOscillator.stop();
+        alarmOscillator.disconnect();
+        alarmOscillator = null;
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`${GAS_API_URL}?action=getStatus`);
+        const data = await res.json();
+        if (data.success) {
+          if (data.lastLog) {
+            document.getElementById("temp-display").innerText = parseFloat(data.lastLog.temperature).toFixed(1);
+            document.getElementById("last-update").innerText = `Terakhir Diperbarui: ${data.lastLog.timestamp}`;
+            
+            const badge = document.getElementById("status-badge");
+            badge.innerText = data.lastLog.status;
+            
+            if (data.lastLog.status === "CRITICAL") {
+              badge.className = "inline-block bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mx-auto";
+              document.getElementById("temp-display").className = "text-6xl font-black text-red-500 animate-bounce";
+            } else if (data.lastLog.status === "WARNING") {
+              badge.className = "inline-block bg-amber-500/20 text-amber-400 border border-amber-500/30 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mx-auto";
+              document.getElementById("temp-display").className = "text-6xl font-black text-amber-400";
+            } else {
+              badge.className = "inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mx-auto";
+              document.getElementById("temp-display").className = "text-6xl font-black text-emerald-400";
+            }
+          }
+
+          // Status Alarm Banner & Audio
+          if (data.settings.ALARM_STATE === "ACTIVE") {
+            document.getElementById("alarm-banner").classList.remove("hidden");
+            startSiren();
+          } else {
+            document.getElementById("alarm-banner").classList.add("hidden");
+            stopSiren();
+          }
+
+          // Isi Form Admin jika Role Admin
+          if (currentUser.role === "Admin") {
+            document.getElementById("cfg-warn").value = data.settings.TEMP_WARNING || "";
+            document.getElementById("cfg-crit").value = data.settings.TEMP_CRITICAL || "";
+            document.getElementById("cfg-token").value = data.settings.TELEGRAM_TOKEN || "";
+            document.getElementById("cfg-chatid").value = data.settings.TELEGRAM_CHAT_ID || "";
+          }
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch(`${GAS_API_URL}?action=getLogs`);
+        const data = await res.json();
+        if (data.success && data.logs) {
+          const tbody = document.getElementById("log-table-body");
+          tbody.innerHTML = data.logs.map(log => `
+            <tr>
+              <td class="p-3">${log.timestamp}</td>
+              <td class="p-3 font-semibold">${log.machine_id}</td>
+              <td class="p-3 font-bold">${log.temperature} °C</td>
+              <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                log.status === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
+                log.status === 'WARNING' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+              }">${log.status}</span></td>
+              <td class="p-3">${log.operator}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function submitTemperature(e) {
+      e.preventDefault();
+      const temp = document.getElementById("input-temp").value;
+      const machine = document.getElementById("input-machine").value;
+
+      await fetch(GAS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "logTemperature",
+          temperature: temp,
+          machine_id: machine,
+          operator: currentUser.username
+        })
+      });
+
+      document.getElementById("input-temp").value = "";
+      fetchStatus();
+      fetchLogs();
+    }
+
+    async function processLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById("login-user").value;
+      const pin = document.getElementById("login-pin").value;
+
+      const res = await fetch(GAS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "login", username: user, pin: pin })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        currentUser = { username: data.username, role: data.role };
+        document.getElementById("user-info").innerText = `${data.username} (${data.role})`;
+        toggleModal("login-modal");
+        
+        if (data.role === "Admin") {
+          document.getElementById("admin-section").classList.remove("hidden");
+        }
+      } else {
+        alert(data.message);
+      }
+    }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      await fetch(GAS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "updateSettings",
+          tempWarning: document.getElementById("cfg-warn").value,
+          tempCritical: document.getElementById("cfg-crit").value,
+          telegramToken: document.getElementById("cfg-token").value,
+          telegramChatId: document.getElementById("cfg-chatid").value
+        })
+      });
+      alert("Pengaturan Berhasil Disimpan!");
+      fetchStatus();
+    }
+
+    async function stopAlarmManual() {
+      await fetch(GAS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "setAlarmState", state: "OFF" })
+      });
+      fetchStatus();
+    }
+
+    // Service Worker PWA Registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
